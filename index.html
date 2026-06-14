@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>hako | 個人用Webツール集</title>
+  <meta name="description" content="個人用Webツール集。すべての処理はブラウザ内で完結し、入力データは外部に送信されません。">
+  <link rel="stylesheet" href="css/common.css">
+</head>
+<body>
+  <!-- layout.js will inject the header here -->
+  <div id="layout-header"></div>
+
+  <main class="container">
+    <div style="margin-top: var(--space-8); margin-bottom: var(--space-8);">
+      <h1 style="font-size: var(--text-xl); font-weight: 800; margin-bottom: var(--space-2); letter-spacing: -0.02em;">hako</h1>
+      <p style="color: var(--text-muted); font-size: var(--text-sm);">
+        開発や日常でよく使う、安全・軽量なクライアントサイド専用ツール集です。
+      </p>
+    </div>
+
+    <!-- Category: Encode / Decode -->
+    <section class="tool-category">
+      <h2 class="category-title">エンコード / デコード</h2>
+      <div class="tool-grid">
+        <a class="tool-card" href="tools/base64/index.html" id="tool-base64">
+          <span class="tool-card-icon">
+            <!-- Code brackets SVG -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+          </span>
+          <span class="tool-card-name">BASE64</span>
+          <span class="tool-card-desc">テキストをBASE64形式にエンコード・デコードします（日本語対応、URL-safe対応）。</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- Category: Text Generation -->
+    <section class="tool-category">
+      <h2 class="category-title">テキスト生成</h2>
+      <div class="tool-grid">
+        <a class="tool-card" href="tools/random-string/index.html" id="tool-random-string">
+          <span class="tool-card-icon">
+            <!-- Dice SVG -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="3" ry="3"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"></circle>
+              <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor"></circle>
+              <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
+              <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor"></circle>
+              <circle cx="8.5" cy="15.5" r="1.5" fill="currentColor"></circle>
+            </svg>
+          </span>
+          <span class="tool-card-name">ランダム文字列生成</span>
+          <span class="tool-card-desc">暗号論的に安全な乱数生成器を用いて、強固なパスワードやランダム文字列を生成します。</span>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <!-- layout.js will inject the footer here -->
+  <div id="layout-footer"></div>
+
+  <script src="js/layout.js"></script>
+</body>
+</html>

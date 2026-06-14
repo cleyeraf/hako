@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BASE64エンコード・デコード | hako</title>
+  <meta name="description" content="テキストをBASE64形式にエンコード・デコードします。日本語などのマルチバイト文字やURL-safe（RFC 4648）にも対応しています。">
+  <link rel="stylesheet" href="../../css/common.css">
+</head>
+<body>
+  <div id="layout-header"></div>
+
+  <main class="container">
+    <h1 class="page-title">BASE64エンコード・デコード</h1>
+    <p class="page-desc">テキストをBASE64形式に変換、またはBASE64形式からデコードします。処理はすべてブラウザ内で安全に行われます。</p>
+
+    <div class="card">
+      <!-- Mode Switch Tabs -->
+      <div class="tabs-container">
+        <button type="button" id="tab-encode" class="tab-btn active">エンコード (Text → Base64)</button>
+        <button type="button" id="tab-decode" class="tab-btn">デコード (Base64 → Text)</button>
+      </div>
+
+      <!-- Input Section -->
+      <div class="form-group">
+        <label id="input-label" for="input-text">入力テキスト</label>
+        <textarea id="input-text" class="textarea" placeholder="ここに変換したいテキストを入力してください..."></textarea>
+      </div>
+
+      <!-- Options Section -->
+      <div class="form-group" style="margin-bottom: var(--space-6);">
+        <label class="checkbox-label" for="option-urlsafe">
+          <input type="checkbox" id="option-urlsafe" class="checkbox-input">
+          URL-safe (RFC 4648) 形式を使用 (+ → -, / → _, = 除去)
+        </label>
+      </div>
+
+      <!-- Output Section -->
+      <div class="form-group" style="margin-top: var(--space-6);">
+        <label for="output-text">変換結果</label>
+        <textarea id="output-text" class="textarea" readonly placeholder="結果がここに表示されます..."></textarea>
+        <div id="error-message" class="status-message"></div>
+      </div>
+
+      <!-- Actions -->
+      <div class="toolbar">
+        <button type="button" id="btn-copy" class="btn btn-primary" disabled>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          結果をコピー
+        </button>
+        <button type="button" id="btn-clear" class="btn btn-ghost">クリア</button>
+      </div>
+    </div>
+  </main>
+
+  <div id="layout-footer"></div>
+
+  <script src="../../js/layout.js"></script>
+  <script>
+    (function() {
+      const tabEncode = document.getElementById('tab-encode');
+      const tabDecode = document.getElementById('tab-decode');
+      const inputLabel = document.getElementById('input-label');
+      const inputText = document.getElementById('input-text');
+      const outputText = document.getElementById('output-text');
+      const optionUrlSafe = document.getElementById('option-urlsafe');
+      const errorMessage = document.getElementById('error-message');
+      const btnCopy = document.getElementById('btn-copy');
+      const btnClear = document.getElementById('btn-clear');
+
+      let mode = 'encode'; // 'encode' or 'decode'
+
+      // Switch mode to Encode
+      tabEncode.addEventListener('click', () => {
+        if (mode === 'encode') return;
+        mode = 'encode';
+        tabEncode.classList.add('active');
+        tabDecode.classList.remove('active');
+        inputLabel.textContent = '入力テキスト';
+        inputText.placeholder = 'ここに変換したいテキストを入力してください...';
+        process();
+      });
+
+      // Switch mode to Decode
+      tabDecode.addEventListener('click', () => {
+        if (mode === 'decode') return;
+        mode = 'decode';
+        tabDecode.classList.add('active');
+        tabEncode.classList.remove('active');
+        inputLabel.textContent = 'Base64文字列';
+        inputText.placeholder = 'ここにデコードしたいBase64文字列を入力してください...';
+        process();
+      });
+
+      // Event listeners for options and inputs
+      inputText.addEventListener('input', process);
+      optionUrlSafe.addEventListener('change', process);
+
+      // Encoding logic (handles UTF-8 strings)
+      function utf8ToBase64(str, urlSafe) {
+        const bytes = new TextEncoder().encode(str);
+        let binString = "";
+        for (let i = 0; i < bytes.length; i++) {
+          binString += String.fromCharCode(bytes[i]);
+        }
+        let base64 = btoa(binString);
+        if (urlSafe) {
+          base64 = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        }
+        return base64;
+      }
+
+      // Decoding logic (handles UTF-8 strings)
+      function base64ToUtf8(str, urlSafe) {
+        let base64 = str.trim();
+        
+        // Auto-handle minor space / newline wraps
+        base64 = base64.replace(/\s+/g, '');
+
+        if (urlSafe) {
+          base64 = base64.replace(/-/g, '+').replace(/_/g, '/');
+          while (base64.length % 4) {
+            base64 += '=';
+          }
+        } else {
+          // If URL-safe patterns are present even though option is disabled,
+          // automatically attempt converting them for user convenience
+          if (/[_-]/.test(base64) && !/[+/]/.test(base64)) {
+            base64 = base64.replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4) {
+              base64 += '=';
+            }
+          }
+        }
+
+        const binString = atob(base64);
+        const bytes = new Uint8Array(binString.length);
+        for (let i = 0; i < binString.length; i++) {
+          bytes[i] = binString.charCodeAt(i);
+        }
+        return new TextDecoder().decode(bytes);
+      }
+
+      // Main process driver
+      function process() {
+        const input = inputText.value;
+        errorMessage.classList.remove('error');
+        errorMessage.textContent = '';
+
+        if (!input) {
+          outputText.value = '';
+          btnCopy.disabled = true;
+          return;
+        }
+
+        try {
+          if (mode === 'encode') {
+            outputText.value = utf8ToBase64(input, optionUrlSafe.checked);
+          } else {
+            outputText.value = base64ToUtf8(input, optionUrlSafe.checked);
+          }
+          btnCopy.disabled = false;
+        } catch (e) {
+          outputText.value = '';
+          btnCopy.disabled = true;
+          errorMessage.classList.add('error');
+          errorMessage.textContent = mode === 'decode' 
+            ? 'デコードエラー: 正しいBase64形式ではありません。文字やパディング、またはURL-safeオプションの設定を確認してください。'
+            : 'エンコードエラーが発生しました。';
+        }
+      }
+
+      // Clipboard copy logic
+      btnCopy.addEventListener('click', () => {
+        if (!outputText.value) return;
+        
+        navigator.clipboard.writeText(outputText.value)
+          .then(() => {
+            if (window.showToast) {
+              window.showToast('クリップボードにコピーしました！');
+            }
+          })
+          .catch(err => {
+            console.error('Copy failed:', err);
+            alert('コピーに失敗しました。お手数ですが手動で選択してコピーしてください。');
+          });
+      });
+
+      // Clear fields
+      btnClear.addEventListener('click', () => {
+        inputText.value = '';
+        outputText.value = '';
+        errorMessage.classList.remove('error');
+        errorMessage.textContent = '';
+        btnCopy.disabled = true;
+        inputText.focus();
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ランダム文字列生成 | hako</title>
+  <meta name="description" content="暗号論的に安全な擬似乱数生成器（CSPRNG）を用いた、強力なパスワードやランダム文字列の生成器です。">
+  <link rel="stylesheet" href="../../css/common.css">
+</head>
+<body>
+  <div id="layout-header"></div>
+
+  <main class="container">
+    <h1 class="page-title">ランダム文字列生成</h1>
+    <p class="page-desc">
+      ブラウザの安全な乱数生成 API (<code style="font-family: var(--font-mono); color: var(--accent-hover);">window.crypto.getRandomValues</code>) を使用し、
+      サーバーにデータを一切送信せずにランダム文字列を生成します。パスワード生成等に最適です。
+    </p>
+
+    <div class="card">
+      <!-- Configuration Forms -->
+      <div class="form-row">
+        <!-- Length Input -->
+        <div class="form-group">
+          <label for="input-length">文字数 (1 〜 2000)</label>
+          <input type="number" id="input-length" class="input" min="1" max="2000" value="16">
+        </div>
+        <!-- Count Input -->
+        <div class="form-group">
+          <label for="input-count">生成件数 (1 〜 50)</label>
+          <input type="number" id="input-count" class="input" min="1" max="50" value="1">
+        </div>
+      </div>
+
+      <!-- Character Sets Checkboxes -->
+      <div class="form-group" style="margin-top: var(--space-4);">
+        <label>使用する文字種（最低1つ選択）</label>
+        <div class="checkbox-list" style="margin-top: var(--space-2);">
+          <label class="checkbox-label" for="char-upper">
+            <input type="checkbox" id="char-upper" class="checkbox-input" checked>
+            英大文字 (A-Z)
+          </label>
+          <label class="checkbox-label" for="char-lower">
+            <input type="checkbox" id="char-lower" class="checkbox-input" checked>
+            英小文字 (a-z)
+          </label>
+          <label class="checkbox-label" for="char-number">
+            <input type="checkbox" id="char-number" class="checkbox-input" checked>
+            数字 (0-9)
+          </label>
+          <label class="checkbox-label" for="char-symbol">
+            <input type="checkbox" id="char-symbol" class="checkbox-input">
+            記号 (!@#$%^&*-_+=)
+          </label>
+          <label class="checkbox-label" for="char-hiragana">
+            <input type="checkbox" id="char-hiragana" class="checkbox-input">
+            ひらがな (あ-ん)
+          </label>
+          <label class="checkbox-label" for="char-katakana">
+            <input type="checkbox" id="char-katakana" class="checkbox-input">
+            全角カタカナ (ア-ン)
+          </label>
+        </div>
+        <div id="char-error" class="status-message"></div>
+      </div>
+
+      <!-- Generate Action -->
+      <div class="toolbar" style="margin-top: var(--space-6); margin-bottom: var(--space-6);">
+        <button type="button" id="btn-generate" class="btn btn-primary">ランダム文字列を生成</button>
+      </div>
+
+      <!-- Output Section -->
+      <div class="form-group">
+        <label for="output-strings">生成結果</label>
+        <textarea id="output-strings" class="textarea" readonly style="min-height: 150px;" placeholder="生成された文字列がここに表示されます..."></textarea>
+      </div>
+
+      <!-- Copy Actions -->
+      <div class="toolbar">
+        <button type="button" id="btn-copy-all" class="btn btn-ghost" disabled>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          全てコピー
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <div id="layout-footer"></div>
+
+  <script src="../../js/layout.js"></script>
+  <script>
+    (function () {
+      const inputLength = document.getElementById('input-length');
+      const inputCount = document.getElementById('input-count');
+      const charUpper = document.getElementById('char-upper');
+      const charLower = document.getElementById('char-lower');
+      const charNumber = document.getElementById('char-number');
+      const charSymbol = document.getElementById('char-symbol');
+      const charHiragana = document.getElementById('char-hiragana');
+      const charKatakana = document.getElementById('char-katakana');
+      const charError = document.getElementById('char-error');
+      const btnGenerate = document.getElementById('btn-generate');
+      const outputStrings = document.getElementById('output-strings');
+      const btnCopyAll = document.getElementById('btn-copy-all');
+
+      const charsets = {
+        upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+        lower: 'abcdefghijklmnopqrstuvwxyz',
+        number: '0123456789',
+        symbol: '!@#$%^&*-_+=',
+        hiragana: 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんがぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽぁぃぅぇぉっゃゅょゎ',
+        katakana: 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲンガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポァィゥェォッャュョヮーヴ'
+      };
+
+      // Register input validation triggers
+      [charUpper, charLower, charNumber, charSymbol, charHiragana, charKatakana].forEach(chk => {
+        chk.addEventListener('change', validateSettings);
+      });
+      [inputLength, inputCount].forEach(input => {
+        input.addEventListener('input', validateSettings);
+      });
+
+      // Validate inputs and checkboxes
+      function validateSettings() {
+        // Check checkbox selections
+        const anySelected = charUpper.checked || charLower.checked || charNumber.checked || charSymbol.checked || charHiragana.checked || charKatakana.checked;
+        
+        // Check numeric bounds
+        const lenVal = parseInt(inputLength.value, 10);
+        const countVal = parseInt(inputCount.value, 10);
+        
+        const isLengthValid = !isNaN(lenVal) && lenVal >= 1 && lenVal <= 2000;
+        const isCountValid = !isNaN(countVal) && countVal >= 1 && countVal <= 50;
+
+        charError.classList.remove('error');
+        charError.textContent = '';
+
+        if (!anySelected) {
+          btnGenerate.disabled = true;
+          charError.classList.add('error');
+          charError.textContent = 'エラー: 文字種を少なくとも1つ選択してください。';
+          return false;
+        }
+
+        if (!isLengthValid) {
+          btnGenerate.disabled = true;
+          charError.classList.add('error');
+          charError.textContent = 'エラー: 文字数は 1 から 2000 の間で指定してください。';
+          return false;
+        }
+
+        if (!isCountValid) {
+          btnGenerate.disabled = true;
+          charError.classList.add('error');
+          charError.textContent = 'エラー: 生成件数は 1 から 50 の間で指定してください。';
+          return false;
+        }
+
+        btnGenerate.disabled = false;
+        return true;
+      }
+
+      // Generate random string using unbiased cryptographically secure rejection sampling
+      function generateRandomString(length, pool) {
+        let result = '';
+        const maxByte = 256 - (256 % pool.length);
+        const buffer = new Uint8Array(length * 2); // Prefetch buffer for faster generation
+
+        while (result.length < length) {
+          window.crypto.getRandomValues(buffer);
+          for (let i = 0; i < buffer.length && result.length < length; i++) {
+            const val = buffer[i];
+            if (val < maxByte) {
+              result += pool[val % pool.length];
+            }
+          }
+        }
+        return result;
+      }
+
+      // Action trigger
+      btnGenerate.addEventListener('click', () => {
+        if (!validateSettings()) return;
+
+        const length = parseInt(inputLength.value, 10);
+        const count = parseInt(inputCount.value, 10);
+
+        // Build character pool
+        let pool = '';
+        if (charUpper.checked) pool += charsets.upper;
+        if (charLower.checked) pool += charsets.lower;
+        if (charNumber.checked) pool += charsets.number;
+        if (charSymbol.checked) pool += charsets.symbol;
+        if (charHiragana.checked) pool += charsets.hiragana;
+        if (charKatakana.checked) pool += charsets.katakana;
+
+        // Generate lines
+        const results = [];
+        for (let i = 0; i < count; i++) {
+          results.push(generateRandomString(length, pool));
+        }
+
+        // Render outputs
+        outputStrings.value = results.join('\n');
+        btnCopyAll.disabled = false;
+      });
+
+      // Copy all results to clipboard
+      btnCopyAll.addEventListener('click', () => {
+        if (!outputStrings.value) return;
+
+        navigator.clipboard.writeText(outputStrings.value)
+          .then(() => {
+            if (window.showToast) {
+              window.showToast('生成結果をクリップボードにコピーしました！');
+            }
+          })
+          .catch(err => {
+            console.error('Copy failed:', err);
+            alert('コピーに失敗しました。お手数ですが手動で選択してコピーしてください。');
+          });
+      });
+    })();
+  </script>
+</body>
+</html>
