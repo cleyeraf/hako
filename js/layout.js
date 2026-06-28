@@ -2,7 +2,7 @@
   // Determine if the current page is a tool page (inside /tools/) to resolve the root relative path.
   // This is highly robust compared to counting path segments since it works on domain roots,
   // subdirectory roots (e.g. /hako/ on GitHub Pages), and local file systems.
-  const isToolPage = location.pathname.includes('/tools/');
+  const isToolPage = location.pathname.includes('/tools/') || location.pathname.includes('/games/');
   const root = isToolPage ? '../../' : './';
 
   // Inject common header

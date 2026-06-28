@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ROCK — CAVE FLIGHT | hako</title>
+  <meta name="description" content="障害物を避けて洞窟を飛び続ける、スリリングな障害物回避ゲーム。すべての処理はブラウザ内で安全に行われます。">
+  <link rel="stylesheet" href="../../css/common.css">
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+    }
+
+    /* 共通ヘッダー・フッターのゲーム用カスタマイズ */
+    .site-header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 100;
+      background: transparent !important;
+      border-bottom: none !important;
+    }
+
+    .site-footer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      z-index: 100;
+      background: transparent !important;
+      border-top: none !important;
+      padding: var(--space-4) !important;
+    }
+
+    .site-footer p {
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+    }
+
+    /* ゲームプレイ中およびゲームオーバー画面ではフッターを非表示にし、プレイ中はヘッダーも非表示にする */
+    body.playing .site-header,
+    body.playing .site-footer,
+    body.gameover .site-footer {
+      display: none !important;
+    }
+
+    body.playing {
+      cursor: none;
+    }
+
+    #wrap {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+
+    #stage {
+      position: relative;
+      background: #0a0e14;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #hud {
+      position: absolute;
+      top: 16px;
+      left: 20px;
+      color: #9fffb0;
+      font-size: 22px;
+      letter-spacing: 2px;
+      text-shadow: 0 0 8px rgba(159, 255, 176, 0.6);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    #debug {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      color: #ffd86b;
+      font-size: 13px;
+      line-height: 1.6;
+      text-align: right;
+      pointer-events: none;
+      user-select: none;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 8px 12px;
+      border-radius: 4px;
+      display: none;
+      white-space: pre;
+    }
+
+    #debug.show {
+      display: block;
+    }
+
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #e8ffe8;
+      text-align: center;
+      background: radial-gradient(ellipse at center, rgba(10, 14, 20, 0.55) 0%, rgba(5, 7, 10, 0.92) 75%);
+    }
+
+    #overlay.hidden {
+      display: none;
+    }
+
+    #overlayInner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transform: scale(var(--ui-scale, 1));
+      transform-origin: center center;
+    }
+
+    h1 {
+      font-size: 64px;
+      letter-spacing: 18px;
+      margin: 0 0 6px 14px;
+      color: #c8ffd0;
+      text-shadow: 0 0 20px rgba(120, 255, 150, 0.7), 0 0 50px rgba(80, 200, 255, 0.25);
+    }
+
+    .sub {
+      color: #6fa98a;
+      font-size: 13px;
+      letter-spacing: 4px;
+      margin-bottom: 30px;
+    }
+
+    .panel {
+      border: 1px solid rgba(159, 255, 176, 0.25);
+      background: rgba(20, 28, 24, 0.5);
+      padding: 22px 36px;
+      border-radius: 4px;
+      min-width: 280px;
+    }
+
+    .score-line {
+      font-size: 16px;
+      margin: 6px 0;
+      color: #b9e8c4;
+    }
+
+    .score-big {
+      font-size: 40px;
+      color: #fff;
+      text-shadow: 0 0 12px rgba(159, 255, 176, 0.6);
+      margin: 4px 0 18px;
+    }
+
+    input[type=text] {
+      background: #0e1512;
+      border: 1px solid #2f5a3f;
+      color: #d8ffe0;
+      font-family: inherit;
+      font-size: 16px;
+      padding: 8px 10px;
+      letter-spacing: 2px;
+      width: 180px;
+      text-align: center;
+      outline: none;
+      min-height: 44px;
+      box-sizing: border-box;
+    }
+
+    input[type=text]:focus {
+      border-color: #7fffa0;
+    }
+
+    button {
+      background: #143524;
+      border: 1px solid #4fae74;
+      color: #d8ffe0;
+      font-family: inherit;
+      font-size: 15px;
+      letter-spacing: 3px;
+      padding: 10px 22px;
+      margin-top: 14px;
+      cursor: pointer;
+      border-radius: 3px;
+      min-height: 44px;
+      min-width: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    button:hover {
+      background: #1d4a31;
+    }
+
+    #rankList {
+      list-style: none;
+      padding: 0;
+      margin: 14px 0 0;
+      text-align: left;
+    }
+
+    #rankList li {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 14px;
+      border-bottom: 1px dashed rgba(159, 255, 176, 0.15);
+      color: #cfead6;
+    }
+
+    #rankList li .rk {
+      color: #6fa98a;
+      width: 26px;
+    }
+
+    #rankList li .nm {
+      flex: 1;
+      text-align: left;
+    }
+
+    #rankList li .pt {
+      color: #fff;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: #547a64;
+      margin-top: 16px;
+      letter-spacing: 1px;
+    }
+
+    #loading {
+      color: #6fa98a;
+      font-size: 13px;
+      letter-spacing: 3px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="layout-header"></div>
+  <div id="wrap">
+    <div id="stage">
+      <canvas id="game"></canvas>
+      <div id="hud"></div>
+      <div id="debug"></div>
+
+      <div id="overlay">
+        <div id="overlayInner">
+          <h1>ROCK</h1>
+          <div class="sub">— CAVE FLIGHT —</div>
+          <div class="panel" id="startPanel">
+            <div class="score-line">マウスを上下に動かして操縦</div>
+            <div class="score-line">岩・壁に当たったら終了</div>
+            <button id="startBtn">START</button>
+            <div class="hint" id="loadingHint">ランキング読込中...</div>
+            <ol id="rankList"></ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="layout-footer"></div>
+
+  <script src="../../js/layout.js"></script>
+  <script>
+    (() => {
+      const canvas = document.getElementById('game');
+      const ctx = canvas.getContext('2d');
+      const hud = document.getElementById('hud');
+      const debugEl = document.getElementById('debug');
+      let debugOn = false;
+      let lastFrameTime = performance.now();
+      let fps = 0;
+      let gameStartTime = 0;
+      let mouseMoveCount = 0;
+      let mouseMoveCountWindow = 0;
+      let lastMoveCountReset = performance.now();
+      let movesPerSec = 0;
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'd' || e.key === 'D') {
+          debugOn = !debugOn;
+          debugEl.classList.toggle('show', debugOn);
+        }
+      });
+      const overlay = document.getElementById('overlay');
+      const startPanel = document.getElementById('startPanel');
+      const rankList = document.getElementById('rankList');
+      const loadingHint = document.getElementById('loadingHint');
+      const stage = document.getElementById('stage');
+
+      // Fixed internal game resolution / aspect ratio so the play area
+      // looks the same regardless of the device's screen shape.
+      const ASPECT = 16 / 9;
+      const BASE_W = 960;
+      const BASE_H = Math.round(BASE_W / ASPECT);
+
+      let W = BASE_W, H = BASE_H;
+
+      function resize() {
+        const vw = window.innerWidth, vh = window.innerHeight;
+        let stageW, stageH;
+        if (vw / vh > ASPECT) {
+          stageH = vh;
+          stageW = Math.round(vh * ASPECT);
+        } else {
+          stageW = vw;
+          stageH = Math.round(vw / ASPECT);
+        }
+        stage.style.width = stageW + 'px';
+        stage.style.height = stageH + 'px';
+        canvas.style.width = stageW + 'px';
+        canvas.style.height = stageH + 'px';
+        canvas.width = BASE_W;
+        canvas.height = BASE_H;
+        // scale UI overlay content relative to stage size
+        const scale = stageW / BASE_W;
+        overlay.style.setProperty('--ui-scale', scale);
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      // ---------- Storage / Ranking ----------
+      const RANK_KEY = 'rock_ranking';
+      const MAX_RANK = 10;
+
+      async function loadRanking() {
+        try {
+          const val = localStorage.getItem(RANK_KEY);
+          if (val) return JSON.parse(val);
+          return [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      async function saveRanking(list) {
+        try {
+          localStorage.setItem(RANK_KEY, JSON.stringify(list));
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      function renderRanking(list) {
+        rankList.innerHTML = '';
+        if (list.length === 0) {
+          const li = document.createElement('li');
+          li.innerHTML = '<span class="nm">まだ記録がありません</span>';
+          rankList.appendChild(li);
+          return;
+        }
+        list.slice(0, MAX_RANK).forEach((r, i) => {
+          const li = document.createElement('li');
+          li.innerHTML = `<span class="rk">${i + 1}</span><span class="nm">${escapeHtml(r.name)}</span><span class="pt">${r.score}</span>`;
+          rankList.appendChild(li);
+        });
+      }
+
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      }
+
+      // ---------- Game state ----------
+      let state = 'menu'; // menu | playing | gameover
+      let mouseY = H / 2;
+      let planeY = H / 2;
+      let planeVY = 0;
+      const planeX = () => W * 0.22;
+      const planeW = 46, planeH = 18;
+
+      let scroll = 0;
+      let score = 0;
+      let speed = 4.2;
+      let frame = 0;
+
+      // cave generation: store wall offsets sampled periodically, generated lazily as we scroll
+      let segments = []; // {x, topY, botY}
+      const SEG_GAP = 18; // px between generated points
+      let lastSegX = 0;
+      let caveCenter = 0;
+      let caveCenterTarget = 0;
+      let caveHalf = 0;
+
+      let rocks = []; // {x, y, r}
+      let lastRockX = 0;
+      const ROCK_MIN_GAP = 480; // base spacing between rocks (worldspace)
+
+      function resetGame() {
+        scroll = 0;
+        score = 0;
+        speed = 4.2;
+        frame = 0;
+        planeY = H / 2;
+        planeVY = 0;
+        segments = [];
+        lastSegX = -SEG_GAP;
+        caveCenter = H / 2;
+        caveCenterTarget = H / 2;
+        caveHalf = H * 0.34;
+        rocks = [];
+        lastRockX = 600; // no rocks right at the start
+        // pre-fill segments across screen + buffer
+        while (lastSegX < W + 200) {
+          genSegment();
+        }
+      }
+
+      function genSegment() {
+        lastSegX += SEG_GAP;
+        // difficulty ramps with score
+        const difficulty = Math.min(score / 4000, 1);
+        caveHalf = H * (0.34 - 0.16 * difficulty); // narrows over time
+        if (Math.random() < 0.02) {
+          caveCenterTarget = H * (0.25 + Math.random() * 0.5);
+        }
+        caveCenter += (caveCenterTarget - caveCenter) * 0.05;
+        // add some wobble
+        const wobble = Math.sin(lastSegX * 0.01) * H * 0.06 * (0.5 + difficulty * 0.7);
+        const center = caveCenter + wobble;
+        const topY = Math.max(10, center - caveHalf);
+        const botY = Math.min(H - 10, center + caveHalf);
+        segments.push({ x: lastSegX, topY, botY });
+
+        // sparsely place a rock inside the passage, well spaced apart
+        if (lastSegX - lastRockX > ROCK_MIN_GAP - difficulty * 180) {
+          if (Math.random() < 0.012 + difficulty * 0.012) {
+            const margin = 26;
+            const usable = (botY - topY) - margin * 2;
+            if (usable > 30) {
+              const ry = topY + margin + Math.random() * usable;
+              const rr = 14 + Math.random() * 14;
+              rocks.push({ x: lastSegX, y: ry, r: rr });
+              lastRockX = lastSegX;
+            }
+          }
+        }
+      }
+
+      // ---------- Input ----------
+      // Mouse: relative delta tracking (like a trackpad), not absolute position.
+      // This avoids snapping the plane to wherever the cursor happens to be
+      // (e.g. over a dialog button) whenever the mouse moves even slightly.
+      let lastClientY = null;
+
+      window.addEventListener('mousemove', (e) => {
+        mouseMoveCount++;
+        const rect = canvas.getBoundingClientRect();
+        const scale = H / rect.height;
+        if (lastClientY === null) {
+          lastClientY = e.clientY;
+          return;
+        }
+        const deltaInternal = (e.clientY - lastClientY) * scale;
+        mouseY += deltaInternal;
+        mouseY = Math.max(0, Math.min(H, mouseY));
+        lastClientY = e.clientY;
+      });
+
+      // Touch: relative drag instead of absolute jump-to-finger.
+      // Moving the finger up/down moves the plane by the same delta
+      // from wherever it currently is, rather than snapping to the touch point.
+      let touchActive = false;
+      let touchStartClientY = 0;
+      let touchStartMouseY = 0;
+
+      function touchYToInternal(clientY) {
+        const rect = canvas.getBoundingClientRect();
+        return clientY * (H / rect.height);
+      }
+
+      canvas.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches[0]) {
+          touchActive = true;
+          touchStartClientY = e.touches[0].clientY;
+          touchStartMouseY = mouseY;
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      window.addEventListener('touchmove', (e) => {
+        if (touchActive && e.touches && e.touches[0]) {
+          const deltaInternal = touchYToInternal(e.touches[0].clientY) - touchYToInternal(touchStartClientY);
+          mouseY = touchStartMouseY + deltaInternal;
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      window.addEventListener('touchend', () => { touchActive = false; });
+      window.addEventListener('touchcancel', () => { touchActive = false; });
+
+      document.getElementById('startBtn').addEventListener('click', () => startGame());
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && state !== 'playing') startGame();
+      });
+
+      function startGame() {
+        overlay.classList.add('hidden');
+        document.body.classList.remove('gameover');
+        document.body.classList.add('playing');
+        resetGame();
+        mouseY = planeY; // avoid snapping to the cursor's last position (e.g. over the Start button)
+        lastClientY = null; // recalibrate relative mouse tracking from this point
+        gameStartTime = performance.now();
+        state = 'playing';
+      }
+
+      // ---------- Game over / ranking submit ----------
+      let pendingScore = 0;
+      let currentRanking = [];
+
+      async function showGameOver() {
+        state = 'gameover';
+        document.body.classList.remove('playing');
+        document.body.classList.add('gameover');
+        pendingScore = Math.floor(score);
+        currentRanking = await loadRanking();
+        const qualifies = currentRanking.length < MAX_RANK || pendingScore > currentRanking[currentRanking.length - 1].score;
+
+        overlay.classList.remove('hidden');
+        startPanel.innerHTML = `
+      <div class="score-line">GAME OVER</div>
+      <div class="score-big">${pendingScore} pt</div>
+      ${qualifies ? `
+        <div class="score-line">ランキング入り！名前を入力</div>
+        <input type="text" id="nameInput" maxlength="10" placeholder="NAME">
+        <br>
+        <button id="submitBtn">登録</button>
+      ` : ''}
+      <button id="retryBtn">RETRY</button>
+      <ol id="rankList2" class="rankList"></ol>
+    `;
+        const rankList2 = document.getElementById('rankList2');
+        rankList2.style.listStyle = 'none';
+        rankList2.style.padding = '0';
+        rankList2.style.margin = '14px 0 0';
+        rankList2.style.textAlign = 'left';
+        function renderInto(el, list) {
+          el.innerHTML = '';
+          if (list.length === 0) {
+            const li = document.createElement('li');
+            li.innerHTML = '<span class="nm">まだ記録がありません</span>';
+            el.appendChild(li);
+            return;
+          }
+          list.slice(0, MAX_RANK).forEach((r, i) => {
+            const li = document.createElement('li');
+            li.style.display = 'flex';
+            li.style.justifyContent = 'space-between';
+            li.style.padding = '4px 0';
+            li.style.fontSize = '14px';
+            li.style.borderBottom = '1px dashed rgba(159,255,176,0.15)';
+            li.style.color = i === 0 ? '#ffe9a8' : '#cfead6';
+            li.innerHTML = `<span class="rk" style="color:#6fa98a;width:26px;display:inline-block">${i + 1}</span><span class="nm" style="flex:1">${escapeHtml(r.name)}</span><span class="pt" style="color:#fff">${r.score}</span>`;
+            el.appendChild(li);
+          });
+        }
+        renderInto(rankList2, currentRanking);
+
+        document.getElementById('retryBtn').addEventListener('click', () => startGame());
+        const submitBtn = document.getElementById('submitBtn');
+        if (submitBtn) {
+          submitBtn.addEventListener('click', async () => {
+            const nameInput = document.getElementById('nameInput');
+            const name = (nameInput.value || 'NONAME').trim().slice(0, 10) || 'NONAME';
+            const list = await loadRanking();
+            list.push({ name, score: pendingScore });
+            list.sort((a, b) => b.score - a.score);
+            const trimmed = list.slice(0, MAX_RANK);
+            await saveRanking(trimmed);
+            renderInto(rankList2, trimmed);
+            submitBtn.disabled = true;
+            submitBtn.textContent = '登録済み';
+          });
+        }
+      }
+
+      // ---------- Update ----------
+      function update(dtMs) {
+        if (state !== 'playing') return;
+        // Normalize to a 60fps-equivalent step so behavior is identical
+        // regardless of the device/browser's actual frame rate (some mobile
+        // browsers raise rAF rate during touch input, which previously made
+        // the game speed up while the player was actively steering).
+        const dtScale = Math.max(0, Math.min(dtMs, 100)) / (1000 / 60);
+
+        frame++;
+        score += speed * 0.5 * dtScale;
+        speed = Math.min(4.2 + score / 1800, 9.5);
+
+        // plane follows mouse with easing
+        const targetY = mouseY;
+        planeVY += (targetY - planeY) * 0.02 * dtScale;
+        planeVY *= Math.pow(0.8, dtScale);
+        planeY += planeVY * dtScale;
+        planeY = Math.max(10, Math.min(H - 10, planeY));
+
+        scroll += speed * dtScale;
+        // shift segments
+        while (segments.length && segments[0].x < scroll - 50) {
+          segments.shift();
+        }
+        while (rocks.length && rocks[0].x < scroll - 50) {
+          rocks.shift();
+        }
+        while (lastSegX < scroll + W + 200) {
+          genSegment();
+        }
+
+        // collision check: find wall y at planeX (world x = scroll + planeX)
+        const worldX = scroll + planeX();
+        const wall = wallAt(worldX);
+        if (wall) {
+          const pTop = planeY - planeH / 2;
+          const pBot = planeY + planeH / 2;
+          if (pTop < wall.topY || pBot > wall.botY) {
+            showGameOver();
+            return;
+          }
+        }
+
+        // rock collision: approximate plane as a circle
+        const planeR = planeH / 2 + 4;
+        for (const rk of rocks) {
+          const dx = rk.x - worldX;
+          const dy = rk.y - planeY;
+          if (Math.abs(dx) < rk.r + planeW / 2) {
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < rk.r + planeR) {
+              showGameOver();
+              return;
+            }
+          }
+        }
+      }
+
+      function wallAt(worldX) {
+        // interpolate between segments
+        for (let i = 0; i < segments.length - 1; i++) {
+          const a = segments[i], b = segments[i + 1];
+          if (worldX >= a.x && worldX <= b.x) {
+            const t = (worldX - a.x) / (b.x - a.x || 1);
+            return {
+              topY: a.topY + (b.topY - a.topY) * t,
+              botY: a.botY + (b.botY - a.botY) * t,
+            };
+          }
+        }
+        return null;
+      }
+
+      // ---------- Draw ----------
+      function draw() {
+        ctx.fillStyle = '#0a0e14';
+        ctx.fillRect(0, 0, W, H);
+
+        // background starfield-ish dots
+        ctx.fillStyle = 'rgba(159,255,176,0.06)';
+        for (let i = 0; i < 40; i++) {
+          const x = (i * 137 - scroll * 0.3) % W;
+          const y = (i * 71) % H;
+          ctx.fillRect((x + W) % W, y, 2, 2);
+        }
+
+        if (state === 'menu') {
+          requestAnimationFrame(loop);
+          return;
+        }
+
+        // cave walls
+        ctx.fillStyle = '#13301f';
+        ctx.strokeStyle = '#4fae74';
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.moveTo(-10, 0);
+        segments.forEach(s => {
+          ctx.lineTo(s.x - scroll, s.topY);
+        });
+        ctx.lineTo(W + 10, segments.length ? segments[segments.length - 1].topY : 0);
+        ctx.lineTo(W + 10, -10);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(-10, H);
+        segments.forEach(s => {
+          ctx.lineTo(s.x - scroll, s.botY);
+        });
+        ctx.lineTo(W + 10, segments.length ? segments[segments.length - 1].botY : H);
+        ctx.lineTo(W + 10, H + 10);
+        ctx.closePath();
+        ctx.fill();
+
+        // wall edge glow lines
+        ctx.beginPath();
+        segments.forEach((s, i) => {
+          const x = s.x - scroll;
+          if (i === 0) ctx.moveTo(x, s.topY); else ctx.lineTo(x, s.topY);
+        });
+        ctx.stroke();
+        ctx.beginPath();
+        segments.forEach((s, i) => {
+          const x = s.x - scroll;
+          if (i === 0) ctx.moveTo(x, s.botY); else ctx.lineTo(x, s.botY);
+        });
+        ctx.stroke();
+
+        // rocks
+        rocks.forEach(rk => {
+          const x = rk.x - scroll, y = rk.y, r = rk.r;
+          if (x < -r - 10 || x > W + r + 10) return;
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.fillStyle = '#3a4a3e';
+          ctx.strokeStyle = '#8fffaa';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          const spikes = 8;
+          for (let i = 0; i < spikes; i++) {
+            const a = (i / spikes) * Math.PI * 2;
+            const rr = r * (0.8 + ((i % 3) * 0.12));
+            const px = Math.cos(a) * rr, py = Math.sin(a) * rr;
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.fill();
+          ctx.globalAlpha = 0.5;
+          ctx.stroke();
+          ctx.restore();
+        });
+
+        // plane
+        if (state === 'playing' || state === 'gameover') {
+          const px = planeX(), py = planeY;
+          const angle = Math.max(-0.4, Math.min(0.4, planeVY * 0.05));
+          ctx.save();
+          ctx.translate(px, py);
+          ctx.rotate(angle);
+          ctx.fillStyle = '#9fffb0';
+          ctx.shadowColor = '#7fffa0';
+          ctx.shadowBlur = 14;
+          ctx.beginPath();
+          ctx.moveTo(planeW / 2, 0);
+          ctx.lineTo(-planeW / 2, -planeH / 2);
+          ctx.lineTo(-planeW / 4, 0);
+          ctx.lineTo(-planeW / 2, planeH / 2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // HUD
+        hud.textContent = `SCORE ${Math.floor(score)}`;
+
+        requestAnimationFrame(loop);
+      }
+
+      function loop() {
+        const now = performance.now();
+        const dt = now - lastFrameTime;
+        lastFrameTime = now;
+        fps = dt > 0 ? (1000 / dt) : 0;
+
+        if (now - lastMoveCountReset >= 500) {
+          movesPerSec = mouseMoveCount / ((now - lastMoveCountReset) / 1000);
+          mouseMoveCount = 0;
+          lastMoveCountReset = now;
+        }
+
+        update(dt);
+        draw();
+
+        if (debugOn) {
+          const elapsedSec = state === 'playing' ? ((now - gameStartTime) / 1000).toFixed(2) : '-';
+          debugEl.textContent =
+            `fps: ${fps.toFixed(1)}\n` +
+            `speed: ${speed.toFixed(3)}\n` +
+            `score: ${Math.floor(score)}\n` +
+            `elapsed(real): ${elapsedSec}s\n` +
+            `frame#: ${frame}\n` +
+            `mousemoves/sec: ${movesPerSec.toFixed(1)}`;
+        }
+      }
+
+      // ---------- Boot ----------
+      (async () => {
+        const list = await loadRanking();
+        loadingHint.remove();
+        renderRanking(list);
+        requestAnimationFrame(loop);
+      })();
+    })();
+  </script>
+</body>
+
+</html>

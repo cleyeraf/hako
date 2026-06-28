@@ -14,6 +14,9 @@
 2. **[ランダム文字列生成](tools/random-string/index.html)**
    - 暗号論的に安全な乱数生成器 (`window.crypto.getRandomValues`) を使用したランダム文字列・パスワード生成器です。
    - 偏りのないリジェクションサンプリングを採用しています。
+3. **[ROCK — CAVE FLIGHT](games/rock/index.html)**
+   - 障害物を避けて洞窟を飛び続ける、スリリングな障害物回避ゲームです。
+   - ランキングデータはブラウザの `localStorage` に安全に保存されます。
 
 ## 🚀 ローカルでの実行・テスト方法
 本プロジェクトは純粋な静的ファイル（HTML / CSS / JS）のみで構成されています。
