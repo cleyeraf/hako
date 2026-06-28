@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>日付計算ツール | hako</title>
+  <meta name="description" content="指定した日時からの日付加減算（X日後・前など）や、2つの日付の間の差分（日数・時間など）を計算するツールです。">
+  <link rel="stylesheet" href="../../css/common.css">
+  <style>
+    /* 追加のレイアウトスタイル */
+    .input-with-btn {
+      display: flex;
+      gap: var(--space-2);
+      align-items: center;
+    }
+    .input-with-btn .input {
+      flex: 1;
+    }
+    .result-section {
+      margin-top: var(--space-6);
+      border-top: 1px solid var(--border);
+      padding-top: var(--space-6);
+    }
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--space-4);
+    }
+    @media (min-width: 600px) {
+      .result-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    .result-card {
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: var(--space-4);
+    }
+    .result-card-title {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: var(--space-2);
+    }
+    .result-card-value {
+      font-size: var(--text-lg);
+      font-weight: 700;
+      font-family: var(--font-mono);
+      word-break: break-all;
+    }
+    .diff-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+    .diff-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--space-2);
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+    .diff-label {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+    }
+    .diff-val {
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div id="layout-header"></div>
+
+  <main class="container">
+    <h1 class="page-title">日付計算ツール</h1>
+    <p class="page-desc">指定日時からX日後の日付を求めたり、2つの日付の間の差分（日数・時間など）を計算します。処理はすべてブラウザ内で安全に行われます。</p>
+
+    <div class="card">
+      <!-- Mode Switch Tabs -->
+      <div class="tabs-container">
+        <button type="button" id="tab-calc" class="tab-btn active">日時の加減算 (加算・減算)</button>
+        <button type="button" id="tab-diff" class="tab-btn">2つの日時の差分計算</button>
+      </div>
+
+      <!-- MODE 1: Calc Section -->
+      <div id="section-calc">
+        <div class="form-row">
+          <div class="form-group" style="flex: 2 1 300px;">
+            <label for="calc-base-date">基準日時</label>
+            <div class="input-with-btn">
+              <input type="datetime-local" id="calc-base-date" class="input">
+              <button type="button" id="btn-calc-now" class="btn btn-ghost">現在時刻</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row" style="margin-top: var(--space-4);">
+          <div class="form-group" style="flex: 1 1 120px;">
+            <label for="calc-value">計算量</label>
+            <input type="number" id="calc-value" class="input" value="1" min="1">
+          </div>
+          <div class="form-group" style="flex: 1 1 150px;">
+            <label for="calc-unit">単位</label>
+            <select id="calc-unit" class="input" style="font-family: var(--font-body);">
+              <option value="days" selected>日 (Days)</option>
+              <option value="weeks">週間 (Weeks)</option>
+              <option value="months">ヶ月 (Months)</option>
+              <option value="years">年 (Years)</option>
+              <option value="hours">時間 (Hours)</option>
+              <option value="minutes">分 (Minutes)</option>
+              <option value="seconds">秒 (Seconds)</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex: 1 1 150px;">
+            <label>計算方向</label>
+            <div class="checkbox-list" style="flex-direction: row; gap: var(--space-4); height: 44px; align-items: center;">
+              <label class="radio-label" for="direction-add" style="min-height: auto;">
+                <input type="radio" id="direction-add" name="calc-direction" class="radio-input" checked value="add">
+                後 (足す)
+              </label>
+              <label class="radio-label" for="direction-sub" style="min-height: auto;">
+                <input type="radio" id="direction-sub" name="calc-direction" class="radio-input" value="sub">
+                前 (引く)
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Calc Results -->
+        <div class="result-section">
+          <h3 style="font-size: var(--text-base); font-weight: 700; margin-bottom: var(--space-4);">計算結果</h3>
+          <div class="result-grid">
+            <div class="result-card">
+              <div class="result-card-title">日付・時間 (ローカル表示)</div>
+              <div style="display: flex; gap: var(--space-2); margin-top: var(--space-2);">
+                <input type="text" id="calc-out-local" class="input" readonly style="font-size: var(--text-base); font-weight: 700;">
+                <button type="button" class="btn btn-ghost btn-copy-field" data-target="calc-out-local" title="コピー">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="result-card">
+              <div class="result-card-title">ISO 8601 形式</div>
+              <div style="display: flex; gap: var(--space-2); margin-top: var(--space-2);">
+                <input type="text" id="calc-out-iso" class="input" readonly>
+                <button type="button" class="btn btn-ghost btn-copy-field" data-target="calc-out-iso" title="コピー">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="result-card">
+              <div class="result-card-title">UNIX タイムスタンプ (秒)</div>
+              <div style="display: flex; gap: var(--space-2); margin-top: var(--space-2);">
+                <input type="text" id="calc-out-timestamp" class="input" readonly>
+                <button type="button" class="btn btn-ghost btn-copy-field" data-target="calc-out-timestamp" title="コピー">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="result-card">
+              <div class="result-card-title">曜日</div>
+              <div style="display: flex; gap: var(--space-2); margin-top: var(--space-2);">
+                <input type="text" id="calc-out-dayofweek" class="input" readonly>
+                <button type="button" class="btn btn-ghost btn-copy-field" data-target="calc-out-dayofweek" title="コピー">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODE 2: Diff Section -->
+      <div id="section-diff" style="display: none;">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="diff-start-date">開始日時</label>
+            <div class="input-with-btn">
+              <input type="datetime-local" id="diff-start-date" class="input">
+              <button type="button" id="btn-diff-start-now" class="btn btn-ghost">現在時刻</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="diff-end-date">終了日時</label>
+            <div class="input-with-btn">
+              <input type="datetime-local" id="diff-end-date" class="input">
+              <button type="button" id="btn-diff-end-now" class="btn btn-ghost">現在時刻</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Diff Results -->
+        <div class="result-section">
+          <h3 style="font-size: var(--text-base); font-weight: 700; margin-bottom: var(--space-4);">差分結果</h3>
+          
+          <div class="result-card" style="margin-bottom: var(--space-4);">
+            <div class="result-card-title">詳細な日時差</div>
+            <div style="display: flex; gap: var(--space-2); margin-top: var(--space-2);">
+              <input type="text" id="diff-out-formatted" class="input" readonly style="font-size: var(--text-base); font-weight: 700;">
+              <button type="button" class="btn btn-ghost btn-copy-field" data-target="diff-out-formatted" title="コピー">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <ul class="diff-list">
+            <li class="diff-item">
+              <span class="diff-label">総日数 (Days)</span>
+              <div style="display: flex; gap: var(--space-2); align-items: center;">
+                <span id="diff-out-days" class="diff-val">0</span>
+                <button type="button" class="btn btn-ghost btn-copy-text" data-target="diff-out-days" style="padding: 0 var(--space-2); min-height: 32px; height: 32px; min-width: 32px; width: 32px;">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+            </li>
+            <li class="diff-item">
+              <span class="diff-label">総時間数 (Hours)</span>
+              <div style="display: flex; gap: var(--space-2); align-items: center;">
+                <span id="diff-out-hours" class="diff-val">0</span>
+                <button type="button" class="btn btn-ghost btn-copy-text" data-target="diff-out-hours" style="padding: 0 var(--space-2); min-height: 32px; height: 32px; min-width: 32px; width: 32px;">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+            </li>
+            <li class="diff-item">
+              <span class="diff-label">総分数 (Minutes)</span>
+              <div style="display: flex; gap: var(--space-2); align-items: center;">
+                <span id="diff-out-minutes" class="diff-val">0</span>
+                <button type="button" class="btn btn-ghost btn-copy-text" data-target="diff-out-minutes" style="padding: 0 var(--space-2); min-height: 32px; height: 32px; min-width: 32px; width: 32px;">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+            </li>
+            <li class="diff-item">
+              <span class="diff-label">総秒数 (Seconds)</span>
+              <div style="display: flex; gap: var(--space-2); align-items: center;">
+                <span id="diff-out-seconds" class="diff-val">0</span>
+                <button type="button" class="btn btn-ghost btn-copy-text" data-target="diff-out-seconds" style="padding: 0 var(--space-2); min-height: 32px; height: 32px; min-width: 32px; width: 32px;">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Main Toolbar -->
+      <div class="toolbar" style="margin-top: var(--space-6);">
+        <button type="button" id="btn-clear" class="btn btn-ghost">クリア</button>
+      </div>
+    </div>
+  </main>
+
+  <div id="layout-footer"></div>
+
+  <script src="../../js/layout.js"></script>
+  <script>
+    (function() {
+      // Tab switching elements
+      const tabCalc = document.getElementById('tab-calc');
+      const tabDiff = document.getElementById('tab-diff');
+      const sectionCalc = document.getElementById('section-calc');
+      const sectionDiff = document.getElementById('section-diff');
+
+      // Calc elements
+      const calcBaseDate = document.getElementById('calc-base-date');
+      const btnCalcNow = document.getElementById('btn-calc-now');
+      const calcValue = document.getElementById('calc-value');
+      const calcUnit = document.getElementById('calc-unit');
+      const directionAdd = document.getElementById('direction-add');
+      const directionSub = document.getElementById('direction-sub');
+      const calcOutLocal = document.getElementById('calc-out-local');
+      const calcOutIso = document.getElementById('calc-out-iso');
+      const calcOutTimestamp = document.getElementById('calc-out-timestamp');
+      const calcOutDayOfWeek = document.getElementById('calc-out-dayofweek');
+
+      // Diff elements
+      const diffStartDate = document.getElementById('diff-start-date');
+      const diffEndDate = document.getElementById('diff-end-date');
+      const btnDiffStartNow = document.getElementById('btn-diff-start-now');
+      const btnDiffEndNow = document.getElementById('btn-diff-end-now');
+      const diffOutFormatted = document.getElementById('diff-out-formatted');
+      const diffOutDays = document.getElementById('diff-out-days');
+      const diffOutHours = document.getElementById('diff-out-hours');
+      const diffOutMinutes = document.getElementById('diff-out-minutes');
+      const diffOutSeconds = document.getElementById('diff-out-seconds');
+
+      const btnClear = document.getElementById('btn-clear');
+
+      let currentMode = 'calc'; // 'calc' or 'diff'
+
+      // Helper: Format date as YYYY-MM-DDTHH:mm for datetime-local value
+      function getLocalDateTimeString(date) {
+        const tzOffset = date.getTimezoneOffset() * 60000;
+        const localTime = new Date(date.getTime() - tzOffset);
+        return localTime.toISOString().slice(0, 16);
+      }
+
+      // Helper: Format date as YYYY-MM-DD HH:mm:ss
+      function formatLocalString(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        const h = String(date.getHours()).padStart(2, '0');
+        const min = String(date.getMinutes()).padStart(2, '0');
+        const s = String(date.getSeconds()).padStart(2, '0');
+        return `${y}-${m}-${d} ${h}:${min}:${s}`;
+      }
+
+      // Initializer: Set current time to controls
+      const now = new Date();
+      calcBaseDate.value = getLocalDateTimeString(now);
+      diffStartDate.value = getLocalDateTimeString(now);
+      
+      const oneDayLater = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      diffEndDate.value = getLocalDateTimeString(oneDayLater);
+
+      // Tab Events
+      tabCalc.addEventListener('click', () => {
+        if (currentMode === 'calc') return;
+        currentMode = 'calc';
+        tabCalc.classList.add('active');
+        tabDiff.classList.remove('active');
+        sectionCalc.style.display = 'block';
+        sectionDiff.style.display = 'none';
+        updateCalc();
+      });
+
+      tabDiff.addEventListener('click', () => {
+        if (currentMode === 'diff') return;
+        currentMode = 'diff';
+        tabDiff.classList.add('active');
+        tabCalc.classList.remove('active');
+        sectionCalc.style.display = 'none';
+        sectionDiff.style.display = 'block';
+        updateDiff();
+      });
+
+      // Quick Now Buttons
+      btnCalcNow.addEventListener('click', () => {
+        calcBaseDate.value = getLocalDateTimeString(new Date());
+        updateCalc();
+      });
+      btnDiffStartNow.addEventListener('click', () => {
+        diffStartDate.value = getLocalDateTimeString(new Date());
+        updateDiff();
+      });
+      btnDiffEndNow.addEventListener('click', () => {
+        diffEndDate.value = getLocalDateTimeString(new Date());
+        updateDiff();
+      });
+
+      // Change listeners for calculation
+      calcBaseDate.addEventListener('input', updateCalc);
+      calcValue.addEventListener('input', updateCalc);
+      calcUnit.addEventListener('change', updateCalc);
+      directionAdd.addEventListener('change', updateCalc);
+      directionSub.addEventListener('change', updateCalc);
+
+      // Change listeners for difference
+      diffStartDate.addEventListener('input', updateDiff);
+      diffEndDate.addEventListener('input', updateDiff);
+
+      // Clear function
+      btnClear.addEventListener('click', () => {
+        const currentNow = new Date();
+        if (currentMode === 'calc') {
+          calcBaseDate.value = getLocalDateTimeString(currentNow);
+          calcValue.value = "1";
+          calcUnit.value = "days";
+          directionAdd.checked = true;
+          updateCalc();
+        } else {
+          diffStartDate.value = getLocalDateTimeString(currentNow);
+          const later = new Date(currentNow.getTime() + 24 * 60 * 60 * 1000);
+          diffEndDate.value = getLocalDateTimeString(later);
+          updateDiff();
+        }
+      });
+
+      // Calculate Logic
+      function updateCalc() {
+        if (!calcBaseDate.value) {
+          calcOutLocal.value = '';
+          calcOutIso.value = '';
+          calcOutTimestamp.value = '';
+          calcOutDayOfWeek.value = '';
+          return;
+        }
+
+        const base = new Date(calcBaseDate.value);
+        let val = parseInt(calcValue.value, 10);
+        if (isNaN(val) || val < 0) {
+          val = 0;
+        }
+
+        const isSubtract = directionSub.checked;
+        const multiplier = isSubtract ? -1 : 1;
+        const amount = val * multiplier;
+
+        const result = new Date(base);
+        const unit = calcUnit.value;
+
+        if (unit === 'years') {
+          result.setFullYear(result.getFullYear() + amount);
+        } else if (unit === 'months') {
+          result.setMonth(result.getMonth() + amount);
+        } else if (unit === 'weeks') {
+          result.setDate(result.getDate() + amount * 7);
+        } else if (unit === 'days') {
+          result.setDate(result.getDate() + amount);
+        } else if (unit === 'hours') {
+          result.setHours(result.getHours() + amount);
+        } else if (unit === 'minutes') {
+          result.setMinutes(result.getMinutes() + amount);
+        } else if (unit === 'seconds') {
+          result.setSeconds(result.getSeconds() + amount);
+        }
+
+        const daysJa = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'];
+        calcOutLocal.value = formatLocalString(result);
+        calcOutIso.value = result.toISOString();
+        calcOutTimestamp.value = Math.floor(result.getTime() / 1000).toString();
+        calcOutDayOfWeek.value = daysJa[result.getDay()];
+      }
+
+      // Difference Logic
+      function updateDiff() {
+        if (!diffStartDate.value || !diffEndDate.value) {
+          diffOutFormatted.value = '';
+          diffOutDays.textContent = '0';
+          diffOutHours.textContent = '0';
+          diffOutMinutes.textContent = '0';
+          diffOutSeconds.textContent = '0';
+          return;
+        }
+
+        let d1 = new Date(diffStartDate.value);
+        let d2 = new Date(diffEndDate.value);
+
+        let isNegative = false;
+        if (d1 > d2) {
+          const temp = d1;
+          d1 = d2;
+          d2 = temp;
+          isNegative = true;
+        }
+
+        const diffMs = d2 - d1;
+        const diffSec = Math.floor(diffMs / 1000);
+        const diffMin = Math.floor(diffSec / 60);
+        const diffHour = Math.floor(diffMin / 60);
+        const diffDay = Math.floor(diffHour / 24);
+
+        // Calendar diff: Years, Months, Days, Hours, Minutes, Seconds
+        let years = d2.getFullYear() - d1.getFullYear();
+        let months = d2.getMonth() - d1.getMonth();
+        let days = d2.getDate() - d1.getDate();
+        let hours = d2.getHours() - d1.getHours();
+        let minutes = d2.getMinutes() - d1.getMinutes();
+        let seconds = d2.getSeconds() - d1.getSeconds();
+
+        if (seconds < 0) {
+          seconds += 60;
+          minutes--;
+        }
+        if (minutes < 0) {
+          minutes += 60;
+          hours--;
+        }
+        if (hours < 0) {
+          hours += 24;
+          days--;
+        }
+        if (days < 0) {
+          const prevMonthEnd = new Date(d2.getFullYear(), d2.getMonth(), 0).getDate();
+          days += prevMonthEnd;
+          months--;
+        }
+        if (months < 0) {
+          months += 12;
+          years--;
+        }
+
+        // Build detailed output string
+        const parts = [];
+        if (years > 0) parts.push(`${years}年`);
+        if (months > 0) parts.push(`${months}ヶ月`);
+        if (days > 0) parts.push(`${days}日`);
+        if (hours > 0) parts.push(`${hours}時間`);
+        if (minutes > 0) parts.push(`${minutes}分`);
+        if (seconds > 0 || parts.length === 0) parts.push(`${seconds}秒`);
+
+        let formattedStr = parts.join('');
+        if (isNegative) {
+          formattedStr = `過去方向へ ${formattedStr}`;
+        } else {
+          formattedStr = `未来方向へ ${formattedStr}`;
+        }
+
+        diffOutFormatted.value = formattedStr;
+        diffOutDays.textContent = (isNegative ? '-' : '') + diffDay.toLocaleString();
+        diffOutHours.textContent = (isNegative ? '-' : '') + diffHour.toLocaleString();
+        diffOutMinutes.textContent = (isNegative ? '-' : '') + diffMin.toLocaleString();
+        diffOutSeconds.textContent = (isNegative ? '-' : '') + diffSec.toLocaleString();
+      }
+
+      // Copy utility functions
+      // 1. For input values
+      document.querySelectorAll('.btn-copy-field').forEach(button => {
+        button.addEventListener('click', () => {
+          const targetId = button.getAttribute('data-target');
+          const targetInput = document.getElementById(targetId);
+          if (targetInput && targetInput.value) {
+            navigator.clipboard.writeText(targetInput.value)
+              .then(() => {
+                if (window.showToast) window.showToast('クリップボードにコピーしました！');
+              })
+              .catch(err => {
+                console.error('Copy failed:', err);
+              });
+          }
+        });
+      });
+
+      // 2. For span text (diff details)
+      document.querySelectorAll('.btn-copy-text').forEach(button => {
+        button.addEventListener('click', () => {
+          const targetId = button.getAttribute('data-target');
+          const targetSpan = document.getElementById(targetId);
+          if (targetSpan && targetSpan.textContent) {
+            // Remove comma separation for raw numeric copying
+            const rawVal = targetSpan.textContent.replace(/,/g, '');
+            navigator.clipboard.writeText(rawVal)
+              .then(() => {
+                if (window.showToast) window.showToast('クリップボードにコピーしました！');
+              })
+              .catch(err => {
+                console.error('Copy failed:', err);
+              });
+          }
+        });
+      });
+
+      // Run initial updates
+      updateCalc();
+      updateDiff();
+    })();
+  </script>
+</body>
+</html>

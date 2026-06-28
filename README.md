@@ -11,10 +11,15 @@
 1. **[BASE64エンコード・デコード](tools/base64/index.html)**
    - テキストをBASE64形式にエンコード・デコードします。
    - 日本語（マルチバイト文字）や URL-safe 形式（RFC 4648）に対応しています。
-2. **[ランダム文字列生成](tools/random-string/index.html)**
+2. **[URLエンコード・デコード](tools/url-encode/index.html)**
+   - テキストをURLエンコード（パーセントエンコーディング）形式に変換、またはデコードします。
+   - encodeURIComponent/encodeURIの切り替えや、スペースの変換（%20または+）に対応しています。
+3. **[ランダム文字列生成](tools/random-string/index.html)**
    - 暗号論的に安全な乱数生成器 (`window.crypto.getRandomValues`) を使用したランダム文字列・パスワード生成器です。
    - 偏りのないリジェクションサンプリングを採用しています。
-3. **[ROCK — CAVE FLIGHT](games/rock/index.html)**
+4. **[日付計算](tools/date-calculator/index.html)**
+   - 指定した日時からの日付加減算（X日後・前など）や、2つの日付の間の差分（日数・時間など）を計算します。
+5. **[ROCK — CAVE FLIGHT](games/rock/index.html)**
    - 障害物を避けて洞窟を飛び続ける、スリリングな障害物回避ゲームです。
    - ランキングデータはブラウザの `localStorage` に安全に保存されます。
 

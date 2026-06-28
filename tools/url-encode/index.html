@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>URLエンコード・デコード | hako</title>
+  <meta name="description" content="テキストをURLエンコード（パーセントエンコーディング）またはデコードします。encodeURIComponentとencodeURIの切り替えや、スペースの変換（%20または+）に対応しています。">
+  <link rel="stylesheet" href="../../css/common.css">
+</head>
+<body>
+  <div id="layout-header"></div>
+
+  <main class="container">
+    <h1 class="page-title">URLエンコード・デコード</h1>
+    <p class="page-desc">テキストをURLエンコード（パーセントエンコーディング）形式に変換、またはデコードします。処理はすべてブラウザ内で安全に行われます。</p>
+
+    <div class="card">
+      <!-- Mode Switch Tabs -->
+      <div class="tabs-container">
+        <button type="button" id="tab-encode" class="tab-btn active">エンコード (Text → URL)</button>
+        <button type="button" id="tab-decode" class="tab-btn">デコード (URL → Text)</button>
+      </div>
+
+      <!-- Input Section -->
+      <div class="form-group">
+        <label id="input-label" for="input-text">入力テキスト</label>
+        <textarea id="input-text" class="textarea" placeholder="ここに変換したいテキストを入力してください..."></textarea>
+      </div>
+
+      <!-- Options Section -->
+      <div class="form-row" style="margin-bottom: var(--space-6);">
+        <div class="form-group">
+          <label>エンコード範囲</label>
+          <div class="checkbox-list">
+            <label class="radio-label" for="range-component">
+              <input type="radio" id="range-component" name="encode-range" class="radio-input" checked value="component">
+              コンポーネント (encodeURIComponent)
+              <span style="color: var(--text-muted); font-size: var(--text-sm); font-weight: normal; margin-left: var(--space-1);">(推奨: すべての記号を変換)</span>
+            </label>
+            <label class="radio-label" for="range-uri">
+              <input type="radio" id="range-uri" name="encode-range" class="radio-input" value="uri">
+              URL全体 (encodeURI)
+              <span style="color: var(--text-muted); font-size: var(--text-sm); font-weight: normal; margin-left: var(--space-1);">(http:// や / ? & 等のURL用記号を残す)</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>スペース (Space) の扱い</label>
+          <div class="checkbox-list">
+            <label class="radio-label" for="space-rfc">
+              <input type="radio" id="space-rfc" name="space-option" class="radio-input" checked value="rfc">
+              %20 に変換 (RFC 3986)
+            </label>
+            <label class="radio-label" for="space-form">
+              <input type="radio" id="space-form" name="space-option" class="radio-input" value="form">
+              + に変換 (form-urlencoded)
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Output Section -->
+      <div class="form-group" style="margin-top: var(--space-6);">
+        <label for="output-text">変換結果</label>
+        <textarea id="output-text" class="textarea" readonly placeholder="結果がここに表示されます..."></textarea>
+        <div id="error-message" class="status-message"></div>
+      </div>
+
+      <!-- Actions -->
+      <div class="toolbar">
+        <button type="button" id="btn-copy" class="btn btn-primary" disabled>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          結果をコピー
+        </button>
+        <button type="button" id="btn-clear" class="btn btn-ghost">クリア</button>
+      </div>
+    </div>
+  </main>
+
+  <div id="layout-footer"></div>
+
+  <script src="../../js/layout.js"></script>
+  <script>
+    (function() {
+      const tabEncode = document.getElementById('tab-encode');
+      const tabDecode = document.getElementById('tab-decode');
+      const inputLabel = document.getElementById('input-label');
+      const inputText = document.getElementById('input-text');
+      const outputText = document.getElementById('output-text');
+      const rangeComponent = document.getElementById('range-component');
+      const rangeUri = document.getElementById('range-uri');
+      const spaceRfc = document.getElementById('space-rfc');
+      const spaceForm = document.getElementById('space-form');
+      const errorMessage = document.getElementById('error-message');
+      const btnCopy = document.getElementById('btn-copy');
+      const btnClear = document.getElementById('btn-clear');
+
+      let mode = 'encode'; // 'encode' or 'decode'
+
+      // Switch mode to Encode
+      tabEncode.addEventListener('click', () => {
+        if (mode === 'encode') return;
+        mode = 'encode';
+        tabEncode.classList.add('active');
+        tabDecode.classList.remove('active');
+        inputLabel.textContent = '入力テキスト';
+        inputText.placeholder = 'ここに変換したいテキストを入力してください...';
+        process();
+      });
+
+      // Switch mode to Decode
+      tabDecode.addEventListener('click', () => {
+        if (mode === 'decode') return;
+        mode = 'decode';
+        tabDecode.classList.add('active');
+        tabEncode.classList.remove('active');
+        inputLabel.textContent = 'URLエンコード文字列';
+        inputText.placeholder = 'ここにデコードしたいURLエンコード文字列を入力してください...';
+        process();
+      });
+
+      // Event listeners for options and inputs
+      inputText.addEventListener('input', process);
+      rangeComponent.addEventListener('change', process);
+      rangeUri.addEventListener('change', process);
+      spaceRfc.addEventListener('change', process);
+      spaceForm.addEventListener('change', process);
+
+      function performEncode(str, range, space) {
+        let encoded = '';
+        if (range === 'component') {
+          encoded = encodeURIComponent(str);
+        } else {
+          encoded = encodeURI(str);
+        }
+        if (space === 'form') {
+          encoded = encoded.replace(/%20/g, '+');
+        }
+        return encoded;
+      }
+
+      function performDecode(str, range, space) {
+        let toDecode = str;
+        if (space === 'form') {
+          toDecode = toDecode.replace(/\+/g, '%20');
+        }
+
+        if (range === 'component') {
+          return decodeURIComponent(toDecode);
+        } else {
+          return decodeURI(toDecode);
+        }
+      }
+
+      // Main process driver
+      function process() {
+        const input = inputText.value;
+        errorMessage.classList.remove('error');
+        errorMessage.textContent = '';
+
+        if (!input) {
+          outputText.value = '';
+          btnCopy.disabled = true;
+          return;
+        }
+
+        const range = rangeComponent.checked ? 'component' : 'uri';
+        const space = spaceRfc.checked ? 'rfc' : 'form';
+
+        try {
+          if (mode === 'encode') {
+            outputText.value = performEncode(input, range, space);
+          } else {
+            outputText.value = performDecode(input, range, space);
+          }
+          btnCopy.disabled = false;
+        } catch (e) {
+          outputText.value = '';
+          btnCopy.disabled = true;
+          errorMessage.classList.add('error');
+          errorMessage.textContent = mode === 'decode' 
+            ? 'デコードエラー: 正しいURLエンコード形式ではありません。%の後に続く文字（16進数）や、スペースの扱いの設定を確認してください。'
+            : 'エンコードエラーが発生しました。';
+        }
+      }
+
+      // Clipboard copy logic
+      btnCopy.addEventListener('click', () => {
+        if (!outputText.value) return;
+        
+        navigator.clipboard.writeText(outputText.value)
+          .then(() => {
+            if (window.showToast) {
+              window.showToast('クリップボードにコピーしました！');
+            }
+          })
+          .catch(err => {
+            console.error('Copy failed:', err);
+            alert('コピーに失敗しました。お手数ですが手動で選択してコピーしてください。');
+          });
+      });
+
+      // Clear fields
+      btnClear.addEventListener('click', () => {
+        inputText.value = '';
+        outputText.value = '';
+        errorMessage.classList.remove('error');
+        errorMessage.textContent = '';
+        btnCopy.disabled = true;
+        inputText.focus();
+      });
+    })();
+  </script>
+</body>
+</html>
