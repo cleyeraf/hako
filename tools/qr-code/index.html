@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QRコード生成 | hako</title>
+  <meta name="description" content="テキストやURLからリアルタイムでQRコードを生成します。SVG形式でのダウンロードやコピーが可能です。">
+  <link rel="stylesheet" href="../../css/common.css">
+</head>
+<body>
+  <div id="layout-header"></div>
+
+  <main class="container">
+    <h1 class="page-title">QRコード生成</h1>
+    <p class="page-desc">入力したテキストやURLからQRコードを即座に生成します。処理はすべてお使いのブラウザ内で完結し、外部に送信されません。</p>
+
+    <div class="card">
+      <!-- Input Section -->
+      <div class="form-group">
+        <label for="input-text">入力テキスト / URL</label>
+        <textarea id="input-text" class="textarea" placeholder="QRコードにするテキストやURLを入力..."></textarea>
+      </div>
+
+      <!-- Settings Section -->
+      <div class="form-group" style="margin-top: var(--space-4);">
+        <label for="select-ecl">誤り訂正レベル</label>
+        <select id="select-ecl" class="input" style="min-height: 44px; display: block; width: 100%;">
+          <option value="L">L (低 - 約7%まで修復可能)</option>
+          <option value="M" selected>M (中 - 約15%まで修復可能)</option>
+          <option value="Q">Q (中高 - 約25%まで修復可能)</option>
+          <option value="H">H (高 - 約30%まで修復可能)</option>
+        </select>
+      </div>
+
+      <!-- Preview Section -->
+      <div class="form-group" style="margin-top: var(--space-6); text-align: center;">
+        <label>QRコードプレビュー</label>
+        <div id="qr-container" style="margin-top: var(--space-2); min-height: 320px; display: flex; align-items: center; justify-content: center; background: var(--bg-base); border: 1px dashed var(--border); border-radius: var(--radius-md); padding: var(--space-4);">
+          <div id="qr-placeholder" style="color: var(--text-muted); font-size: var(--text-sm);">
+            テキストを入力するとQRコードがここに表示されます
+          </div>
+        </div>
+        <div id="error-message" style="margin-top: var(--space-2); font-size: var(--text-sm); font-family: var(--font-mono); color: var(--error);"></div>
+      </div>
+
+      <!-- Actions -->
+      <div class="toolbar" style="margin-top: var(--space-6); justify-content: center;">
+        <button type="button" id="btn-download" class="btn btn-ghost" disabled>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline; vertical-align: middle; margin-right: 4px;">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          SVGダウンロード
+        </button>
+        <button type="button" id="btn-copy" class="btn btn-ghost" disabled>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline; vertical-align: middle; margin-right: 4px;">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          コピー
+        </button>
+        <button type="button" id="btn-clear" class="btn btn-ghost">クリア</button>
+      </div>
+    </div>
+  </main>
+
+  <div id="layout-footer"></div>
+
+  <script src="../../libs/qrcodegen.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    (function() {
+      const inputText = document.getElementById('input-text');
+      const selectEcl = document.getElementById('select-ecl');
+      const qrContainer = document.getElementById('qr-container');
+      const qrPlaceholder = document.getElementById('qr-placeholder');
+      const errorMessage = document.getElementById('error-message');
+      const btnDownload = document.getElementById('btn-download');
+      const btnCopy = document.getElementById('btn-copy');
+      const btnClear = document.getElementById('btn-clear');
+
+      let currentSvgText = '';
+
+      // Set event listeners
+      inputText.addEventListener('input', generateQR);
+      selectEcl.addEventListener('change', generateQR);
+
+      // SVG Generation Helper
+      function generateSVG(qr) {
+        const size = qr.size;
+        const border = 4; // Standard quiet zone
+        let rects = '';
+        for (let y = 0; y < size; y++) {
+          for (let x = 0; x < size; x++) {
+            if (qr.getModule(x, y)) {
+              rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="#000"/>`;
+            }
+          }
+        }
+        return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-${border} -${border} ${size + border * 2} ${size + border * 2}" width="100%" style="max-width:300px;display:block;margin:0 auto;background:#fff;border-radius:var(--radius-sm);">\n  ${rects}\n</svg>`;
+      }
+
+      // QR Code generation main routine
+      function generateQR() {
+        const text = inputText.value;
+        errorMessage.textContent = '';
+        currentSvgText = '';
+
+        if (!text) {
+          qrContainer.innerHTML = '';
+          qrContainer.appendChild(qrPlaceholder);
+          btnDownload.disabled = true;
+          btnCopy.disabled = true;
+          return;
+        }
+
+        try {
+          const QrCode = qrcodegen.QrCode;
+          
+          // Determine Error Correction Level
+          let ecl;
+          switch (selectEcl.value) {
+            case 'L': ecl = QrCode.Ecc.LOW; break;
+            case 'M': ecl = QrCode.Ecc.MEDIUM; break;
+            case 'Q': ecl = QrCode.Ecc.QUARTILE; break;
+            case 'H': ecl = QrCode.Ecc.HIGH; break;
+            default: ecl = QrCode.Ecc.MEDIUM;
+          }
+
+          // Encode text to QR Code
+          const qr = QrCode.encodeText(text, ecl);
+          
+          // Draw QR Code as SVG
+          currentSvgText = generateSVG(qr);
+
+          // Render inside preview container
+          qrContainer.innerHTML = currentSvgText;
+          
+          // Enable actions
+          btnDownload.disabled = false;
+          btnCopy.disabled = false;
+        } catch (e) {
+          qrContainer.innerHTML = '';
+          qrContainer.appendChild(qrPlaceholder);
+          btnDownload.disabled = true;
+          btnCopy.disabled = true;
+          
+          if (e instanceof RangeError) {
+            errorMessage.textContent = 'エラー: 入力テキストが長すぎるため、QRコードを生成できません。';
+          } else {
+            errorMessage.textContent = 'エラー: QRコードの生成中に問題が発生しました。';
+          }
+          console.error(e);
+        }
+      }
+
+      // Download Action
+      btnDownload.addEventListener('click', () => {
+        if (!currentSvgText) return;
+        try {
+          const blob = new Blob([currentSvgText], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'qr.svg';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.error('Download failed:', err);
+          alert('ダウンロードに失敗しました。');
+        }
+      });
+
+      // Clipboard Copy Action
+      btnCopy.addEventListener('click', () => {
+        if (!currentSvgText) return;
+        navigator.clipboard.writeText(currentSvgText)
+          .then(() => {
+            if (window.showToast) {
+              window.showToast('コピーしました');
+            }
+          })
+          .catch(err => {
+            console.error('Copy failed:', err);
+            alert('コピーに失敗しました。手動で選択してコピーしてください。');
+          });
+      });
+
+      // Clear fields
+      btnClear.addEventListener('click', () => {
+        inputText.value = '';
+        selectEcl.value = 'M';
+        qrContainer.innerHTML = '';
+        qrContainer.appendChild(qrPlaceholder);
+        errorMessage.textContent = '';
+        currentSvgText = '';
+        btnDownload.disabled = true;
+        btnCopy.disabled = true;
+        inputText.focus();
+      });
+    })();
+  </script>
+</body>
+</html>
