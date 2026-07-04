@@ -19,7 +19,11 @@
    - 偏りのないリジェクションサンプリングを採用しています。
 4. **[日付計算](tools/date-calculator/index.html)**
    - 指定した日時からの日付加減算（X日後・前など）や、2つの日付の間の差分（日数・時間など）を計算します。
-5. **[ROCK — CAVE FLIGHT](games/rock/index.html)**
+5. **[QRコード生成](tools/qr-code/index.html)**
+   - 入力したテキストやURLからQRコードをリアルタイムで生成します。
+   - 誤り訂正レベル（L / M / Q / H）を選択可能。SVG形式でのダウンロード・クリップボードへのコピーに対応しています。
+   - QRコード生成ライブラリ（`qrcodegen.js`）はローカルにバンドルされており、外部通信は一切行いません。
+6. **[ROCK — CAVE FLIGHT](games/rock/index.html)**
    - 障害物を避けて洞窟を飛び続ける、スリリングな障害物回避ゲームです。
    - ランキングデータはブラウザの `localStorage` に安全に保存されます。
 
